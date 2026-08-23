@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  /* Escala "prata + lua" */
+  --color-moon-50: #f9fafb;
+  --color-moon-100: #f1f2f4;
+  --color-moon-200: #e4e6ea;
+  --color-moon-300: #c9cdd4;
+  --color-moon-400: #a6acb8;
+  --color-moon-500: #7c8493;
+  --color-moon-600: #5b6270;
+  --color-moon-700: #3f4451;
+  --color-moon-800: #2a2e38;
+  --color-moon-900: #17191f;
+
+  --color-silver: #c7ccd4;
+  --color-silver-dark: #9aa0ac;
+
+  /* Tokens semânticos, usados nos componentes */
+  --color-background: var(--color-moon-50);
+  --color-surface: #ffffff;
+  --color-foreground: var(--color-moon-900);
+  --color-muted: var(--color-moon-500);
+  --color-border: var(--color-moon-200);
+  --color-accent: var(--color-silver-dark);
+}

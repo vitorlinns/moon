@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: moon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: moon
+      POSTGRES_USER: moon
+      POSTGRES_PASSWORD: moon
+    ports:
+      - "5432:5432"
+    volumes:
+      - moon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moon -d moon"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    container_name: moon-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: moon
+      MINIO_ROOT_PASSWORD: moon12345
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - moon_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  moon_postgres_data:
+  moon_minio_data:
