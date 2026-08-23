@@ -1,6 +1,5 @@
 import { RiSearchLine, RiUserLine, RiShoppingBag3Line } from 'react-icons/ri'
-
-const categories = ['Alianças', 'Anéis', 'Solitários', 'Colares', 'Brincos', 'Pulseiras']
+import { categories } from '../data/categories'
 
 export function Header() {
   return (

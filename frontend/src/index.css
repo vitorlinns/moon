@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
   /* Escala "prata + lua" */
   --color-moon-50: #f9fafb;
   --color-moon-100: #f1f2f4;
@@ -23,4 +33,8 @@
   --color-muted: var(--color-moon-500);
   --color-border: var(--color-moon-200);
   --color-accent: var(--color-silver-dark);
+}
+
+body {
+  font-family: var(--font-sans);
 }
