@@ -107,21 +107,24 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
-var authPermitLimit = builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 5);
-var authWindowSeconds = builder.Configuration.GetValue("RateLimit:AuthWindowSeconds", 60);
-
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
     options.AddPolicy("auth", context =>
     {
+        // lido por requisição (não capturado uma vez no startup) pra que overrides de
+        // configuração aplicados depois de builder.Build() — como os do WebApplicationFactory
+        // nos testes — realmente tenham efeito.
+        var configuration = context.RequestServices.GetRequiredService<IConfiguration>();
+        var permitLimit = configuration.GetValue("RateLimit:AuthPermitLimit", 5);
+        var windowSeconds = configuration.GetValue("RateLimit:AuthWindowSeconds", 60);
         var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = authPermitLimit,
-            Window = TimeSpan.FromSeconds(authWindowSeconds),
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromSeconds(windowSeconds),
             QueueLimit = 0,
         });
     });
