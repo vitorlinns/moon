@@ -6,16 +6,17 @@ interface IconButtonProps {
   onClick?: () => void
   badge?: number
   disabled?: boolean
+  className?: string
 }
 
-export function IconButton({ icon, label, onClick, badge, disabled }: IconButtonProps) {
+export function IconButton({ icon, label, onClick, badge, disabled, className }: IconButtonProps) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`relative text-foreground ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+      className={`relative ${className ?? 'text-foreground'} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       {icon}
       {!!badge && badge > 0 && (

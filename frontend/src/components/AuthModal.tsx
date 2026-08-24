@@ -5,6 +5,7 @@ import { useAuth, type OAuthProvider } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { formatCpf } from '../lib/cpf'
 import { getAuthErrorMessage } from '../lib/authErrors'
+import { PasswordInput } from './PasswordInput'
 
 type Mode = 'login' | 'register'
 type RegisterStep = 'cpf' | 'details'
@@ -24,6 +25,7 @@ export function AuthModal() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const resetForm = () => {
@@ -32,6 +34,7 @@ export function AuthModal() {
     setName('')
     setEmail('')
     setPassword('')
+    setConfirmPassword('')
   }
 
   const switchMode = (nextMode: Mode) => {
@@ -56,7 +59,7 @@ export function AuthModal() {
       return
     }
 
-    if (mode === 'register' && (!name || !email || !password)) {
+    if (mode === 'register' && (!name || !email || !password || !confirmPassword)) {
       showToast('Preencha nome, e-mail e senha.')
       return
     }
@@ -68,6 +71,11 @@ export function AuthModal() {
 
     if (password && password.length < 8) {
       showToast('A senha precisa ter no mínimo 8 caracteres.')
+      return
+    }
+
+    if (mode === 'register' && password !== confirmPassword) {
+      showToast('As senhas não coincidem.')
       return
     }
 
@@ -153,6 +161,7 @@ export function AuthModal() {
                 Nome
                 <input
                   type="text"
+                  placeholder="Seu nome completo"
                   autoFocus
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -168,6 +177,7 @@ export function AuthModal() {
                 E-mail
                 <input
                   type="email"
+                  placeholder="Digite seu e-mail"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   className="border border-border px-3 py-2 text-sm text-foreground outline-none"
@@ -176,13 +186,23 @@ export function AuthModal() {
 
               <label className="flex flex-col gap-1 text-sm text-muted">
                 Senha
-                <input
-                  type="password"
+                <PasswordInput
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="border border-border px-3 py-2 text-sm text-foreground outline-none"
+                  onChange={setPassword}
+                  placeholder={mode === 'login' ? 'Digite sua senha' : 'Mínimo de 8 caracteres'}
                 />
               </label>
+
+              {mode === 'register' && (
+                <label className="flex flex-col gap-1 text-sm text-muted">
+                  Confirmar senha
+                  <PasswordInput
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    placeholder="Repita a senha"
+                  />
+                </label>
+              )}
             </>
           )}
 

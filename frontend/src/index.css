@@ -33,6 +33,7 @@
   --color-muted: var(--color-moon-500);
   --color-border: var(--color-moon-200);
   --color-accent: var(--color-silver-dark);
+  --color-danger: #b3554d;
 }
 
 body {

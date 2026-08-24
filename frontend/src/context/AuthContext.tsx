@@ -1,10 +1,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { API_URL, apiFetch } from '../lib/api'
+import { API_URL, apiFetch, ApiError } from '../lib/api'
 
 export interface User {
   id: string
   name: string
   email: string
+  cpf?: string
+}
+
+// TODO: remover quando o backend de auth existir — só pra pré-visualizar a área logada sem servidor.
+const PREVIEW_USER: User = {
+  id: 'preview',
+  name: 'Ana Beatriz',
+  email: 'ana.beatriz@exemplo.com',
+  cpf: '123.456.789-00',
 }
 
 export type OAuthProvider = 'google' | 'facebook' | 'apple'
@@ -25,14 +34,17 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(PREVIEW_USER)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     apiFetch<User>('/auth/me')
       .then(setUser)
-      .catch(() => setUser(null))
+      .catch((err) => {
+        // erro de rede (sem backend ainda) mantém o usuário de pré-visualização
+        if (err instanceof ApiError) setUser(null)
+      })
       .finally(() => setIsLoadingUser(false))
   }, [])
 
@@ -59,7 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    await apiFetch('/auth/logout', { method: 'POST' })
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' })
+    } catch {
+      // sem backend ainda: segue limpando a sessão local mesmo assim
+    }
     setUser(null)
   }
 
