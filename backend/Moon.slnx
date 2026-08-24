@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Moon.Api/Moon.Api.csproj" />
+    <Project Path="src/Moon.Api.Tests/Moon.Api.Tests.csproj" />
   </Folder>
 </Solution>

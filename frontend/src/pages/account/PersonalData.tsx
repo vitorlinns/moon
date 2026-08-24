@@ -3,6 +3,7 @@ import { RiLoader4Line, RiInformationLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { getAuthErrorMessage } from '../../lib/authErrors'
+import { formatCpf } from '../../lib/cpf'
 
 export function PersonalData() {
   const { user, updateProfile } = useAuth()
@@ -85,7 +86,7 @@ export function PersonalData() {
           {user.cpf && (
             <div>
               <p className="text-sm text-muted">CPF</p>
-              <p className="mt-0.5 text-sm text-foreground">{user.cpf}</p>
+              <p className="mt-0.5 text-sm text-foreground">{formatCpf(user.cpf)}</p>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
                 <RiInformationLine className="size-3.5 shrink-0" />
                 O CPF não pode ser alterado.
@@ -125,7 +126,7 @@ export function PersonalData() {
           {user.cpf && (
             <div>
               <dt className="text-muted">CPF</dt>
-              <dd className="mt-0.5 text-foreground">{user.cpf}</dd>
+              <dd className="mt-0.5 text-foreground">{formatCpf(user.cpf)}</dd>
             </div>
           )}
         </dl>

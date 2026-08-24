@@ -4,18 +4,30 @@ services:
     container_name: moon-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: moon
-      POSTGRES_USER: moon
-      POSTGRES_PASSWORD: moon
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - moon_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moon -d moon"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: moon-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   minio:
     image: minio/minio
@@ -23,8 +35,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: moon
-      MINIO_ROOT_PASSWORD: moon12345
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"
       - "9001:9001"
