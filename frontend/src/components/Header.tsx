@@ -2,9 +2,11 @@ import { RiSearchLine, RiUserLine, RiShoppingBag3Line } from 'react-icons/ri'
 import { CategoriesMenu } from './CategoriesMenu'
 import { IconButton } from './IconButton'
 import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
 
 export function Header() {
   const { itemCount, open } = useCart()
+  const { isAuthenticated, openModal, logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface">
@@ -27,7 +29,11 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-5 text-foreground">
-          <IconButton icon={<RiUserLine className="size-5" />} label="Minha conta" disabled />
+          <IconButton
+            icon={<RiUserLine className="size-5" />}
+            label={isAuthenticated ? 'Sair da conta' : 'Entrar'}
+            onClick={isAuthenticated ? logout : openModal}
+          />
           <IconButton
             icon={<RiShoppingBag3Line className="size-5" />}
             label="Sacola"
