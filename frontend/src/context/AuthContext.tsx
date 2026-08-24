@@ -27,6 +27,7 @@ interface AuthContextValue {
   closeModal: () => void
   login: (email: string, password: string) => Promise<void>
   register: (data: { cpf: string; name: string; email: string; password: string }) => Promise<void>
+  updateProfile: (data: { name: string; email: string }) => Promise<void>
   loginWithProvider: (provider: OAuthProvider) => void
   logout: () => Promise<void>
 }
@@ -66,6 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsModalOpen(false)
   }
 
+  const updateProfile = async (data: { name: string; email: string }) => {
+    const updatedUser = await apiFetch<User>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+    setUser(updatedUser)
+  }
+
   const loginWithProvider = (provider: OAuthProvider) => {
     window.location.href = `${API_URL}/auth/${provider}?returnTo=${encodeURIComponent(window.location.href)}`
   }
@@ -90,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         closeModal: () => setIsModalOpen(false),
         login,
         register,
+        updateProfile,
         loginWithProvider,
         logout,
       }}
