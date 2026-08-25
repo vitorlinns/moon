@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { RiArrowDownSLine } from 'react-icons/ri'
-import { categories } from '../data/categories'
+import { useCategories } from '../context/CategoryContext'
 
 export function CategoriesMenu() {
+  const { categories } = useCategories()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -42,13 +43,13 @@ export function CategoriesMenu() {
       {isOpen && (
         <ul className="absolute right-0 z-10 mt-2 w-48 border border-border bg-surface py-1 shadow-md">
           {categories.map((category) => (
-            <li key={category}>
+            <li key={category.id}>
               <a
                 href="#"
                 onClick={() => setIsOpen(false)}
                 className="block px-3 py-2 text-sm text-muted transition-colors hover:bg-moon-100 hover:text-foreground"
               >
-                {category}
+                {category.name}
               </a>
             </li>
           ))}

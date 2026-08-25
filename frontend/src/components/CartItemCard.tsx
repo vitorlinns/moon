@@ -19,11 +19,15 @@ export function CartItemCard({ item, onIncrease, onDecrease, onRemove }: CartIte
   return (
     <li className="flex gap-4 py-5">
       <div className="flex size-16 shrink-0 items-center justify-center bg-moon-100">
-        <RiDiamondLine className="size-6 text-moon-400" />
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className="size-full object-cover" />
+        ) : (
+          <RiDiamondLine className="size-6 text-moon-400" />
+        )}
       </div>
 
       <div className="flex flex-1 flex-col">
-        <p className="text-xs uppercase tracking-wider text-muted">{product.category}</p>
+        <p className="text-xs uppercase tracking-wider text-muted">{product.categoryName}</p>
         <h3 className="mt-1 text-sm text-foreground">{product.name}</h3>
         <p className="mt-1 text-sm text-foreground">{currencyFormatter.format(product.price)}</p>
 

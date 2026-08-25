@@ -14,30 +14,33 @@ import { Settings } from './pages/account/Settings'
 import { CartProvider } from './context/CartContext'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { CategoryProvider } from './context/CategoryContext'
 
 function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <CartProvider>
-          <div className="min-h-svh bg-background text-foreground">
-            <Header />
-            <Routes>
-              <Route path="/" element={<HomeStore />} />
-              <Route path="/minha-conta" element={<AccountLayout />}>
-                <Route index element={<PersonalData />} />
-                <Route path="enderecos" element={<Addresses />} />
-                <Route path="pagamento" element={<Payment />} />
-                <Route path="pedidos" element={<Orders />} />
-                <Route path="configuracoes" element={<Settings />} />
-              </Route>
-            </Routes>
-            <Footer />
-            <CartDrawer />
-            <AuthModal />
-            <ToastViewport />
-          </div>
-        </CartProvider>
+        <CategoryProvider>
+          <CartProvider>
+            <div className="min-h-svh bg-background text-foreground">
+              <Header />
+              <Routes>
+                <Route path="/" element={<HomeStore />} />
+                <Route path="/minha-conta" element={<AccountLayout />}>
+                  <Route index element={<PersonalData />} />
+                  <Route path="enderecos" element={<Addresses />} />
+                  <Route path="pagamento" element={<Payment />} />
+                  <Route path="pedidos" element={<Orders />} />
+                  <Route path="configuracoes" element={<Settings />} />
+                </Route>
+              </Routes>
+              <Footer />
+              <CartDrawer />
+              <AuthModal />
+              <ToastViewport />
+            </div>
+          </CartProvider>
+        </CategoryProvider>
       </AuthProvider>
     </ToastProvider>
   )

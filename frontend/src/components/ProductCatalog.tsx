@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ProductCard } from './ProductCard'
 import { CategoryFilter, type CategoryValue } from './CategoryFilter'
 import { SortDropdown } from './SortDropdown'
 import { Pagination } from './Pagination'
-import { products } from '../data/products'
+import { fetchProducts, type Product } from '../lib/catalog'
 
 type SortOption = '' | 'price-asc' | 'price-desc' | 'launch' | 'sales'
 
@@ -15,38 +15,40 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: 'sales', label: 'Mais vendidos' },
 ]
 
-const PAGE_SIZE = 16
-
 export function ProductCatalog() {
   const [category, setCategory] = useState<CategoryValue>('Todos')
   const [sort, setSort] = useState<SortOption>('')
   const [page, setPage] = useState(1)
-
-  const sortedProducts = useMemo(() => {
-    const filtered =
-      category === 'Todos' ? products : products.filter((product) => product.category === category)
-
-    switch (sort) {
-      case 'price-asc':
-        return [...filtered].sort((a, b) => a.price - b.price)
-      case 'price-desc':
-        return [...filtered].sort((a, b) => b.price - a.price)
-      case 'launch':
-        return [...filtered].sort((a, b) => b.launchedAt.localeCompare(a.launchedAt))
-      case 'sales':
-        return [...filtered].sort((a, b) => b.sales - a.sales)
-      default:
-        return filtered
-    }
-  }, [category, sort])
-
-  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE))
+  const [products, setProducts] = useState<Product[]>([])
+  const [totalPages, setTotalPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     setPage(1)
   }, [category, sort])
 
-  const visibleProducts = sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+
+    fetchProducts({
+      category: category === 'Todos' ? undefined : category,
+      sort: sort || undefined,
+      page,
+    })
+      .then((result) => {
+        if (cancelled) return
+        setProducts(result.items)
+        setTotalPages(result.totalPages)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [category, sort, page])
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-16">
@@ -57,9 +59,9 @@ export function ProductCatalog() {
         <SortDropdown options={sortOptions} value={sort} onChange={setSort} />
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-4">
-        {visibleProducts.map((product) => (
-          <ProductCard key={product.name} {...product} />
+      <div className={`mt-8 grid grid-cols-2 gap-8 sm:grid-cols-4 ${isLoading ? 'opacity-50' : ''}`}>
+        {products.map((product) => (
+          <ProductCard key={product.id} {...product} />
         ))}
       </div>
 

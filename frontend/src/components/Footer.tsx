@@ -1,5 +1,5 @@
 import { RiInstagramLine, RiFacebookCircleLine, RiWhatsappLine } from 'react-icons/ri'
-import { categories } from '../data/categories'
+import { useCategories } from '../context/CategoryContext'
 
 const institutionalLinks = ['Sobre nós', 'Contato', 'Trabalhe conosco', 'Lojas físicas']
 const supportLinks = ['Central de ajuda', 'Trocas e devoluções', 'Perguntas frequentes']
@@ -22,6 +22,8 @@ function FooterColumn({ title, links }: { title: string; links: readonly string[
 }
 
 export function Footer() {
+  const { categories } = useCategories()
+
   return (
     <footer className="border-t border-border bg-surface">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 py-16 md:grid-cols-5">
@@ -44,7 +46,7 @@ export function Footer() {
         </div>
 
         <FooterColumn title="Institucional" links={institutionalLinks} />
-        <FooterColumn title="Categorias" links={categories} />
+        <FooterColumn title="Categorias" links={categories.map((category) => category.name)} />
         <FooterColumn title="Atendimento" links={supportLinks} />
       </div>
 

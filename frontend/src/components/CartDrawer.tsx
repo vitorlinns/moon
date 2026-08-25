@@ -42,11 +42,11 @@ export function CartDrawer() {
           <ul className="flex-1 divide-y divide-border overflow-y-auto px-6">
             {items.map((item) => (
               <CartItemCard
-                key={item.product.name}
+                key={item.product.id}
                 item={item}
-                onIncrease={() => updateQuantity(item.product.name, item.quantity + 1)}
-                onDecrease={() => updateQuantity(item.product.name, item.quantity - 1)}
-                onRemove={() => removeItem(item.product.name)}
+                onIncrease={() => updateQuantity(item.product.id, item.quantity + 1)}
+                onDecrease={() => updateQuantity(item.product.id, item.quantity - 1)}
+                onRemove={() => removeItem(item.product.id)}
               />
             ))}
           </ul>

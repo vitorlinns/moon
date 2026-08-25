@@ -13,6 +13,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
 
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<Product> Products => Set<Product>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -72,6 +76,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.Property(c => c.Name).HasMaxLength(100).IsRequired();
+            entity.Property(c => c.Slug).HasMaxLength(100).IsRequired();
+
+            entity.HasIndex(c => c.Slug).IsUnique();
+
+            entity.HasData(CatalogSeedData.Categories);
+        });
+
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.Property(p => p.Name).HasMaxLength(200).IsRequired();
+            entity.Property(p => p.Slug).HasMaxLength(200).IsRequired();
+            entity.Property(p => p.Price).HasPrecision(10, 2);
+            entity.Property(p => p.ImageUrl).HasMaxLength(500);
+
+            entity.HasIndex(p => p.Slug).IsUnique();
+            entity.HasIndex(p => p.CategoryId);
+
+            entity.HasOne<Category>()
+                .WithMany()
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasData(CatalogSeedData.Products);
         });
     }
 }

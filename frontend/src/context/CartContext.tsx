@@ -1,9 +1,20 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { Product } from '../data/products'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { Product } from '../lib/catalog'
 
 export interface CartItem {
   product: Product
   quantity: number
+}
+
+const STORAGE_KEY = 'moon-cart'
+
+function loadStoredItems(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as CartItem[]) : []
+  } catch {
+    return []
+  }
 }
 
 interface CartContextValue {
@@ -12,8 +23,8 @@ interface CartContextValue {
   itemCount: number
   total: number
   addItem: (product: Product) => void
-  removeItem: (name: string) => void
-  updateQuantity: (name: string, quantity: number) => void
+  removeItem: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
   open: () => void
   close: () => void
 }
@@ -21,15 +32,23 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null)
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([])
+  const [items, setItems] = useState<CartItem[]>(loadStoredItems)
   const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    } catch {
+      // localStorage indisponível (modo privado, quota cheia etc.) — sacola some no refresh, sem quebrar a página
+    }
+  }, [items])
 
   const addItem = (product: Product) => {
     setItems((current) => {
-      const existing = current.find((item) => item.product.name === product.name)
+      const existing = current.find((item) => item.product.id === product.id)
       if (existing) {
         return current.map((item) =>
-          item.product.name === product.name ? { ...item, quantity: item.quantity + 1 } : item,
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
         )
       }
       return [...current, { product, quantity: 1 }]
@@ -37,17 +56,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsOpen(true)
   }
 
-  const removeItem = (name: string) => {
-    setItems((current) => current.filter((item) => item.product.name !== name))
+  const removeItem = (id: string) => {
+    setItems((current) => current.filter((item) => item.product.id !== id))
   }
 
-  const updateQuantity = (name: string, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity < 1) {
-      removeItem(name)
+      removeItem(id)
       return
     }
     setItems((current) =>
-      current.map((item) => (item.product.name === name ? { ...item, quantity } : item)),
+      current.map((item) => (item.product.id === id ? { ...item, quantity } : item)),
     )
   }
 
