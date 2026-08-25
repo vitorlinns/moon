@@ -46,6 +46,8 @@ public class MoonApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.PaymentMethods.ExecuteDeleteAsync();
         await db.RefreshTokens.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
+        await db.AdminRefreshTokens.ExecuteDeleteAsync();
+        await db.AdminUsers.ExecuteDeleteAsync();
     }
 
     public async Task ResetDatabaseAsync()
@@ -56,5 +58,7 @@ public class MoonApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.PaymentMethods.ExecuteDeleteAsync();
         await db.RefreshTokens.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
+        await db.AdminRefreshTokens.ExecuteDeleteAsync();
+        await db.AdminUsers.ExecuteDeleteAsync();
     }
 }

@@ -27,6 +27,12 @@ builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
     ["Jwt:AccessTokenExpiresMinutes"] = Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRES_MINUTES"),
     ["Jwt:RefreshTokenExpiresDays"] = Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRES_DAYS"),
     ["Frontend:Origin"] = Environment.GetEnvironmentVariable("FRONTEND_ORIGIN"),
+    ["AdminJwt:Key"] = Environment.GetEnvironmentVariable("ADMIN_JWT_KEY"),
+    ["AdminJwt:Issuer"] = Environment.GetEnvironmentVariable("ADMIN_JWT_ISSUER"),
+    ["AdminJwt:Audience"] = Environment.GetEnvironmentVariable("ADMIN_JWT_AUDIENCE"),
+    ["AdminJwt:AccessTokenExpiresMinutes"] = Environment.GetEnvironmentVariable("ADMIN_JWT_ACCESS_TOKEN_EXPIRES_MINUTES"),
+    ["AdminJwt:RefreshTokenExpiresDays"] = Environment.GetEnvironmentVariable("ADMIN_JWT_REFRESH_TOKEN_EXPIRES_DAYS"),
+    ["AdminFrontend:Origin"] = Environment.GetEnvironmentVariable("ADMIN_FRONTEND_ORIGIN"),
 });
 
 // Add services to the container.
@@ -41,11 +47,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 var frontendOrigin = builder.Configuration["Frontend:Origin"]
     ?? throw new InvalidOperationException("Configuração 'Frontend:Origin' ausente (defina FRONTEND_ORIGIN no .env).");
 
+var adminFrontendOrigin = builder.Configuration["AdminFrontend:Origin"]
+    ?? throw new InvalidOperationException("Configuração 'AdminFrontend:Origin' ausente (defina ADMIN_FRONTEND_ORIGIN no .env).");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins(frontendOrigin)
+        policy.WithOrigins(frontendOrigin, adminFrontendOrigin)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -53,8 +62,10 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<AdminJwtOptions>(builder.Configuration.GetSection(AdminJwtOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddSingleton<IAdminJwtTokenService, AdminJwtTokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -65,6 +76,16 @@ if (jwtOptions.Key.Length < 32)
     throw new InvalidOperationException(
         "A chave 'Jwt:Key' precisa ter pelo menos 32 caracteres. Em produção, defina-a via variável de " +
         "ambiente (JWT_KEY) ou secret manager — nunca commitada em appsettings.");
+}
+
+var adminJwtOptions = builder.Configuration.GetSection(AdminJwtOptions.SectionName).Get<AdminJwtOptions>()
+    ?? throw new InvalidOperationException("Configuração 'AdminJwt' ausente (defina ADMIN_JWT_KEY, ADMIN_JWT_ISSUER e ADMIN_JWT_AUDIENCE no .env).");
+
+if (adminJwtOptions.Key.Length < 32)
+{
+    throw new InvalidOperationException(
+        "A chave 'AdminJwt:Key' precisa ter pelo menos 32 caracteres. Em produção, defina-a via variável de " +
+        "ambiente (ADMIN_JWT_KEY) ou secret manager — nunca commitada em appsettings.");
 }
 
 builder.Services
@@ -89,6 +110,34 @@ builder.Services
             OnMessageReceived = context =>
             {
                 if (context.Request.Cookies.TryGetValue(AuthCookie.AccessToken, out var token))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
+    })
+    .AddJwtBearer(AdminAuthCookie.BearerScheme, options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = adminJwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = adminJwtOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(adminJwtOptions.Key)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Cookies.TryGetValue(AdminAuthCookie.AccessToken, out var token))
                 {
                     context.Token = token;
                 }
@@ -122,6 +171,23 @@ builder.Services.AddRateLimiter(options =>
         var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromSeconds(windowSeconds),
+            QueueLimit = 0,
+        });
+    });
+
+    options.AddPolicy("admin-auth", context =>
+    {
+        var configuration = context.RequestServices.GetRequiredService<IConfiguration>();
+        var permitLimit = configuration.GetValue("RateLimit:AuthPermitLimit", 5);
+        var windowSeconds = configuration.GetValue("RateLimit:AuthWindowSeconds", 60);
+        var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        // partição própria (prefixo "admin:") pra não disputar o mesmo balde de tentativas
+        // de um cliente saindo do mesmo IP/rede
+        return RateLimitPartition.GetFixedWindowLimiter($"admin:{clientIp}", _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = permitLimit,
             Window = TimeSpan.FromSeconds(windowSeconds),

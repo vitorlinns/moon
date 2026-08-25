@@ -6,6 +6,8 @@ backend/**/obj/
 # Node / frontend
 frontend/node_modules/
 frontend/dist/
+frontend-admin/node_modules/
+frontend-admin/dist/
 *.tsbuildinfo
 
 # Env

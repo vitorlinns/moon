@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+  /* Mesma escala "prata + lua" da loja (frontend/src/index.css) */
+  --color-moon-50: #f9fafb;
+  --color-moon-100: #f1f2f4;
+  --color-moon-200: #e4e6ea;
+  --color-moon-300: #c9cdd4;
+  --color-moon-400: #a6acb8;
+  --color-moon-500: #7c8493;
+  --color-moon-600: #5b6270;
+  --color-moon-700: #3f4451;
+  --color-moon-800: #2a2e38;
+  --color-moon-900: #17191f;
+
+  --color-silver: #c7ccd4;
+  --color-silver-dark: #9aa0ac;
+
+  --color-background: var(--color-moon-50);
+  --color-surface: #ffffff;
+  --color-foreground: var(--color-moon-900);
+  --color-muted: var(--color-moon-500);
+  --color-border: var(--color-moon-200);
+  --color-accent: var(--color-silver-dark);
+  --color-danger: #b3554d;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button::-moz-focus-inner {
+  border: 0;
+}

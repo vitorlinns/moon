@@ -17,6 +17,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Product> Products => Set<Product>();
 
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+
+    public DbSet<AdminRefreshToken> AdminRefreshTokens => Set<AdminRefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -104,6 +108,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasData(CatalogSeedData.Products);
+        });
+
+        modelBuilder.Entity<AdminUser>(entity =>
+        {
+            entity.Property(a => a.Name).HasMaxLength(200).IsRequired();
+            entity.Property(a => a.Email).HasMaxLength(320).IsRequired();
+            entity.Property(a => a.PasswordHash).HasMaxLength(200).IsRequired();
+
+            entity.HasIndex(a => a.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<AdminRefreshToken>(entity =>
+        {
+            entity.Property(t => t.TokenHash).HasMaxLength(64).IsRequired();
+            entity.Property(t => t.CreatedByIp).HasMaxLength(45);
+
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasIndex(t => t.AdminUserId);
+
+            entity.HasOne<AdminUser>()
+                .WithMany()
+                .HasForeignKey(t => t.AdminUserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
