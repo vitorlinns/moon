@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moon.Api.Contracts.Addresses;
 using Moon.Api.Contracts.Auth;
 using Moon.Api.Data;
 
@@ -270,5 +271,257 @@ public class AuthEndpointsTests(MoonApiFactory factory) : IClassFixture<MoonApiF
 
         var refreshAfterLogout = await client.PostAsync("/api/auth/refresh");
         Assert.Equal(HttpStatusCode.Unauthorized, refreshAfterLogout.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ComSenhaAtualCorreta_TrocaERevogaOutrasSessoes()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        // outra sessão do mesmo usuário (ex: outro navegador) — deve ser derrubada pela troca
+        var otherSessionRefreshToken = client.GetCookie("moon_refresh_token");
+        var otherSession = client.Fork();
+
+        var response = await client.PostAsync("/api/auth/change-password", new
+        {
+            currentPassword = "senha1234",
+            newPassword = "novaSenha5678",
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.NotEqual(otherSessionRefreshToken, client.GetCookie("moon_refresh_token"));
+
+        var otherSessionRefresh = await otherSession.PostAsync("/api/auth/refresh");
+        Assert.Equal(HttpStatusCode.Unauthorized, otherSessionRefresh.StatusCode);
+
+        // a sessão atual continua válida com o novo par de tokens já emitido
+        var meAfterChange = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, meAfterChange.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ComSenhaAtualErrada_RetornaBadRequestENaoAltera()
+    {
+        var client = NewClient();
+        var email = $"change-pw-errada-{Guid.NewGuid():N}@teste.com";
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload(email));
+
+        var response = await client.PostAsync("/api/auth/change-password", new
+        {
+            currentPassword = "senhaerrada",
+            newPassword = "novaSenha5678",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var loginComSenhaAntiga = await NewClient().PostAsync("/api/auth/login", new { email, password = "senha1234" });
+        Assert.Equal(HttpStatusCode.OK, loginComSenhaAntiga.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteMe_ComSenhaCorreta_RemoveContaERevogaSessao()
+    {
+        var client = NewClient();
+        var email = $"delete-me-{Guid.NewGuid():N}@teste.com";
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload(email));
+
+        var response = await client.DeleteAsync("/api/auth/me", new { password = "senha1234" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var meAfterDelete = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, meAfterDelete.StatusCode);
+
+        // e-mail volta a ficar livre pra um novo cadastro
+        var registerAgain = await NewClient().PostAsync("/api/auth/register", ValidRegisterPayload(email));
+        Assert.Equal(HttpStatusCode.OK, registerAgain.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteMe_ComSenhaErrada_RetornaBadRequestENaoRemove()
+    {
+        var client = NewClient();
+        var email = $"delete-me-senha-errada-{Guid.NewGuid():N}@teste.com";
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload(email));
+
+        var response = await client.DeleteAsync("/api/auth/me", new { password = "senhaerrada" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var meAfter = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, meAfter.StatusCode);
+    }
+
+    private static object ValidAddressPayload(bool isDefault = false) => new
+    {
+        label = "Casa",
+        recipient = "Usuária de Teste",
+        cep = "01310-100",
+        street = "Avenida Paulista",
+        number = "1000",
+        complement = "Apto 12",
+        neighborhood = "Bela Vista",
+        city = "São Paulo",
+        state = "SP",
+        isDefault,
+    };
+
+    [Fact]
+    public async Task Addresses_SemAutenticacao_RetornaUnauthorized()
+    {
+        var response = await NewClient().PostAsync("/api/addresses", ValidAddressPayload());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Addresses_Create_PrimeiroEnderecoNasceComoPadraoMesmoSemPedir()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/addresses", ValidAddressPayload(isDefault: false));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var address = await response.Content.ReadFromJsonAsync<AddressResponse>();
+        Assert.True(address!.IsDefault);
+        Assert.Equal("01310100", address.Cep);
+    }
+
+    [Fact]
+    public async Task Addresses_Create_ComCepInvalido_RetornaBadRequest()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/addresses", new
+        {
+            label = "Casa",
+            recipient = "Teste",
+            cep = "123",
+            street = "Rua Teste",
+            number = "1",
+            complement = (string?)null,
+            neighborhood = "Centro",
+            city = "São Paulo",
+            state = "SP",
+            isDefault = false,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Addresses_Create_ComUfInvalida_RetornaBadRequest()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/addresses", new
+        {
+            label = "Casa",
+            recipient = "Teste",
+            cep = "01310-100",
+            street = "Rua Teste",
+            number = "1",
+            complement = (string?)null,
+            neighborhood = "Centro",
+            city = "São Paulo",
+            state = "XX",
+            isDefault = false,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Addresses_List_RetornaSomenteEnderecosDoUsuarioAutenticado()
+    {
+        var ownerClient = NewClient();
+        await ownerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        await ownerClient.PostAsync("/api/addresses", ValidAddressPayload());
+
+        var otherClient = NewClient();
+        await otherClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        await otherClient.PostAsync("/api/addresses", ValidAddressPayload());
+
+        var response = await ownerClient.GetAsync("/api/addresses");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var addresses = await response.Content.ReadFromJsonAsync<List<AddressResponse>>();
+        Assert.Single(addresses!);
+    }
+
+    [Fact]
+    public async Task Addresses_Update_DeEnderecoDeOutroUsuario_RetornaNotFound()
+    {
+        var ownerClient = NewClient();
+        await ownerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var created = await ownerClient.PostAsync("/api/addresses", ValidAddressPayload());
+        var address = await created.Content.ReadFromJsonAsync<AddressResponse>();
+
+        var attackerClient = NewClient();
+        await attackerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await attackerClient.PutAsync($"/api/addresses/{address!.Id}", ValidAddressPayload());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Addresses_Delete_DeEnderecoDeOutroUsuario_RetornaNotFoundENaoRemove()
+    {
+        var ownerClient = NewClient();
+        await ownerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var created = await ownerClient.PostAsync("/api/addresses", ValidAddressPayload());
+        var address = await created.Content.ReadFromJsonAsync<AddressResponse>();
+
+        var attackerClient = NewClient();
+        await attackerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await attackerClient.DeleteAsync($"/api/addresses/{address!.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        var stillThere = await ownerClient.GetAsync("/api/addresses");
+        var addresses = await stillThere.Content.ReadFromJsonAsync<List<AddressResponse>>();
+        Assert.Single(addresses!);
+    }
+
+    [Fact]
+    public async Task Addresses_SetDefault_DesmarcaOAntigoEMarcaOEscolhido()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var first = await client.PostAsync("/api/addresses", ValidAddressPayload());
+        var firstAddress = await first.Content.ReadFromJsonAsync<AddressResponse>();
+        var second = await client.PostAsync("/api/addresses", ValidAddressPayload());
+        var secondAddress = await second.Content.ReadFromJsonAsync<AddressResponse>();
+
+        var response = await client.PostAsync($"/api/addresses/{secondAddress!.Id}/default");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var list = await client.GetAsync("/api/addresses");
+        var addresses = await list.Content.ReadFromJsonAsync<List<AddressResponse>>();
+        Assert.True(addresses!.Single(a => a.Id == secondAddress.Id).IsDefault);
+        Assert.False(addresses!.Single(a => a.Id == firstAddress!.Id).IsDefault);
+    }
+
+    [Fact]
+    public async Task Addresses_Delete_DoEnderecoPadrao_PromoveOutroComoNovoPadrao()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var first = await client.PostAsync("/api/addresses", ValidAddressPayload());
+        var firstAddress = await first.Content.ReadFromJsonAsync<AddressResponse>();
+        await client.PostAsync("/api/addresses", ValidAddressPayload());
+
+        var deleteResponse = await client.DeleteAsync($"/api/addresses/{firstAddress!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var list = await client.GetAsync("/api/addresses");
+        var addresses = await list.Content.ReadFromJsonAsync<List<AddressResponse>>();
+        Assert.Single(addresses!);
+        Assert.True(addresses!.Single().IsDefault);
     }
 }

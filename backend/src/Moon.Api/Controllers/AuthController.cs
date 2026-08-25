@@ -134,6 +134,7 @@ public class AuthController(
         return Ok(ToResponse(user));
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
@@ -181,6 +182,7 @@ public class AuthController(
         return NoContent();
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
@@ -252,6 +254,65 @@ public class AuthController(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(ToResponse(user));
+    }
+
+    [EnableRateLimiting("auth")]
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (user.PasswordHash is null || !passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            return BadRequest(new ErrorResponse("Senha atual incorreta."));
+        }
+
+        if (string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 8)
+        {
+            return BadRequest(new ErrorResponse("A nova senha precisa ter no mínimo 8 caracteres."));
+        }
+
+        user.PasswordHash = passwordHasher.Hash(request.NewPassword);
+
+        // troca de senha revoga todas as sessões ativas (inclusive uma eventualmente roubada)
+        // e emite um par de tokens novo só pra esta sessão, que segue autenticada
+        await RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+        SetAccessTokenCookie(jwtTokenService.GenerateToken(user));
+        IssueRefreshToken(user.Id);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [EnableRateLimiting("auth")]
+    [Authorize]
+    [HttpDelete("me")]
+    public async Task<IActionResult> DeleteMe(DeleteAccountRequest request, CancellationToken cancellationToken)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (user.PasswordHash is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
+        {
+            return BadRequest(new ErrorResponse("Senha incorreta."));
+        }
+
+        // RefreshTokens e Addresses têm FK com cascade delete, então saem junto do usuário
+        dbContext.Users.Remove(user);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        Response.Cookies.Delete(AuthCookie.AccessToken, new CookieOptions { Path = "/" });
+        Response.Cookies.Delete(AuthCookie.RefreshToken, new CookieOptions { Path = "/api/auth" });
+
+        return NoContent();
     }
 
     private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)

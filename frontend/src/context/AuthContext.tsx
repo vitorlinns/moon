@@ -20,6 +20,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   register: (data: { cpf: string; name: string; email: string; password: string }) => Promise<void>
   updateProfile: (data: { name: string; email: string }) => Promise<void>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  deleteAccount: (password: string) => Promise<void>
   loginWithProvider: (provider: OAuthProvider) => void
   logout: () => Promise<void>
 }
@@ -66,6 +68,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser)
   }
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    await apiFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  }
+
+  const deleteAccount = async (password: string) => {
+    await apiFetch('/auth/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    })
+    invalidateCsrfToken()
+    setUser(null)
+  }
+
   const loginWithProvider = (provider: OAuthProvider) => {
     window.location.href = `${API_URL}/api/auth/${provider}?returnTo=${encodeURIComponent(window.location.href)}`
   }
@@ -92,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         updateProfile,
+        changePassword,
+        deleteAccount,
         loginWithProvider,
         logout,
       }}

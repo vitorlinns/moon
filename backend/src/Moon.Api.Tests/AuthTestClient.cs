@@ -39,6 +39,12 @@ internal sealed class AuthTestClient
     public async Task<HttpResponseMessage> PatchAsync(string path, object? body = null) =>
         await SendWithCsrfAsync(HttpMethod.Patch, path, body);
 
+    public async Task<HttpResponseMessage> PutAsync(string path, object? body = null) =>
+        await SendWithCsrfAsync(HttpMethod.Put, path, body);
+
+    public async Task<HttpResponseMessage> DeleteAsync(string path, object? body = null) =>
+        await SendWithCsrfAsync(HttpMethod.Delete, path, body);
+
     /// <summary>Envia sem token CSRF, mesmo sendo POST/PATCH — pra testar que a validação bloqueia.</summary>
     public async Task<HttpResponseMessage> PostWithoutCsrfAsync(string path, object? body = null)
     {
