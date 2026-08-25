@@ -11,6 +11,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Address> Addresses => Set<Address>();
 
+    public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -55,6 +57,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PaymentMethod>(entity =>
+        {
+            entity.Property(p => p.Brand).HasMaxLength(30).IsRequired();
+            entity.Property(p => p.LastFourDigits).HasMaxLength(4).IsRequired();
+            entity.Property(p => p.HolderName).HasMaxLength(200).IsRequired();
+
+            entity.HasIndex(p => p.UserId);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moon.Api.Contracts.Addresses;
 using Moon.Api.Contracts.Auth;
+using Moon.Api.Contracts.PaymentMethods;
 using Moon.Api.Data;
 
 namespace Moon.Api.Tests;
@@ -523,5 +524,149 @@ public class AuthEndpointsTests(MoonApiFactory factory) : IClassFixture<MoonApiF
         var addresses = await list.Content.ReadFromJsonAsync<List<AddressResponse>>();
         Assert.Single(addresses!);
         Assert.True(addresses!.Single().IsDefault);
+    }
+
+    private static object ValidPaymentMethodPayload(bool isDefault = false) => new
+    {
+        brand = "Visa",
+        lastFourDigits = "4242",
+        holderName = "Usuária de Teste",
+        expiryMonth = 12,
+        expiryYear = DateTime.UtcNow.Year + 2,
+        isDefault,
+    };
+
+    [Fact]
+    public async Task PaymentMethods_SemAutenticacao_RetornaUnauthorized()
+    {
+        var response = await NewClient().PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_Create_PrimeiroCartaoNasceComoPadraoMesmoSemPedir()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/payment-methods", ValidPaymentMethodPayload(isDefault: false));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paymentMethod = await response.Content.ReadFromJsonAsync<PaymentMethodResponse>();
+        Assert.True(paymentMethod!.IsDefault);
+        Assert.Equal("4242", paymentMethod.LastFourDigits);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_Create_ComUltimosDigitosInvalidos_RetornaBadRequest()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/payment-methods", new
+        {
+            brand = "Visa",
+            lastFourDigits = "42",
+            holderName = "Teste",
+            expiryMonth = 12,
+            expiryYear = DateTime.UtcNow.Year + 2,
+            isDefault = false,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_Create_ComCartaoVencido_RetornaBadRequest()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await client.PostAsync("/api/payment-methods", new
+        {
+            brand = "Visa",
+            lastFourDigits = "4242",
+            holderName = "Teste",
+            expiryMonth = 1,
+            expiryYear = DateTime.UtcNow.Year - 1,
+            isDefault = false,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_List_RetornaSomenteCartoesDoUsuarioAutenticado()
+    {
+        var ownerClient = NewClient();
+        await ownerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        await ownerClient.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+
+        var otherClient = NewClient();
+        await otherClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        await otherClient.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+
+        var response = await ownerClient.GetAsync("/api/payment-methods");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paymentMethods = await response.Content.ReadFromJsonAsync<List<PaymentMethodResponse>>();
+        Assert.Single(paymentMethods!);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_Delete_DeCartaoDeOutroUsuario_RetornaNotFoundENaoRemove()
+    {
+        var ownerClient = NewClient();
+        await ownerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var created = await ownerClient.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+        var paymentMethod = await created.Content.ReadFromJsonAsync<PaymentMethodResponse>();
+
+        var attackerClient = NewClient();
+        await attackerClient.PostAsync("/api/auth/register", ValidRegisterPayload());
+
+        var response = await attackerClient.DeleteAsync($"/api/payment-methods/{paymentMethod!.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        var stillThere = await ownerClient.GetAsync("/api/payment-methods");
+        var paymentMethods = await stillThere.Content.ReadFromJsonAsync<List<PaymentMethodResponse>>();
+        Assert.Single(paymentMethods!);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_SetDefault_DesmarcaOAntigoEMarcaOEscolhido()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var first = await client.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+        var firstCard = await first.Content.ReadFromJsonAsync<PaymentMethodResponse>();
+        var second = await client.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+        var secondCard = await second.Content.ReadFromJsonAsync<PaymentMethodResponse>();
+
+        var response = await client.PostAsync($"/api/payment-methods/{secondCard!.Id}/default");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var list = await client.GetAsync("/api/payment-methods");
+        var paymentMethods = await list.Content.ReadFromJsonAsync<List<PaymentMethodResponse>>();
+        Assert.True(paymentMethods!.Single(p => p.Id == secondCard.Id).IsDefault);
+        Assert.False(paymentMethods!.Single(p => p.Id == firstCard!.Id).IsDefault);
+    }
+
+    [Fact]
+    public async Task PaymentMethods_Delete_DoCartaoPadrao_PromoveOutroComoNovoPadrao()
+    {
+        var client = NewClient();
+        await client.PostAsync("/api/auth/register", ValidRegisterPayload());
+        var first = await client.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+        var firstCard = await first.Content.ReadFromJsonAsync<PaymentMethodResponse>();
+        await client.PostAsync("/api/payment-methods", ValidPaymentMethodPayload());
+
+        var deleteResponse = await client.DeleteAsync($"/api/payment-methods/{firstCard!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var list = await client.GetAsync("/api/payment-methods");
+        var paymentMethods = await list.Content.ReadFromJsonAsync<List<PaymentMethodResponse>>();
+        Assert.Single(paymentMethods!);
+        Assert.True(paymentMethods!.Single().IsDefault);
     }
 }

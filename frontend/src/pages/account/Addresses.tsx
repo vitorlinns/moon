@@ -2,9 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { RiMapPinLine, RiLoader4Line, RiPencilLine, RiDeleteBinLine, RiStarFill, RiStarLine } from 'react-icons/ri'
 import { apiFetch, ApiError } from '../../lib/api'
 import { useToast } from '../../context/ToastContext'
-import { formatCep } from '../../lib/cep'
+import { formatCep, lookupCep } from '../../lib/cep'
 import { BRAZILIAN_STATES } from '../../lib/states'
 import { EmptyState } from '../../components/EmptyState'
+import { SortDropdown, type SortDropdownOption } from '../../components/SortDropdown'
 
 interface Address {
   id: string
@@ -34,6 +35,11 @@ const emptyForm: AddressFormData = {
   state: '',
 }
 
+const stateOptions: SortDropdownOption<string>[] = [
+  { value: '', label: 'Selecione' },
+  ...BRAZILIAN_STATES.map(([code, name]) => ({ value: code, label: `${code} — ${name}` })),
+]
+
 function getErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     return err.message || 'Não foi possível completar a solicitação.'
@@ -49,6 +55,7 @@ export function Addresses() {
   const [form, setForm] = useState<AddressFormData>(emptyForm)
   const [isSaving, setIsSaving] = useState(false)
   const [pendingActionId, setPendingActionId] = useState<string | null>(null)
+  const [isLookingUpCep, setIsLookingUpCep] = useState(false)
 
   const loadAddresses = () => {
     apiFetch<Address[]>('/addresses')
@@ -90,6 +97,32 @@ export function Addresses() {
 
   const updateField = <K extends keyof AddressFormData>(field: K, value: AddressFormData[K]) => {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleCepBlur = async () => {
+    const digits = form.cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+
+    setIsLookingUpCep(true)
+    try {
+      const result = await lookupCep(digits)
+      if (!result) {
+        showToast('CEP não encontrado.')
+        return
+      }
+
+      setForm((current) => ({
+        ...current,
+        street: result.street || current.street,
+        neighborhood: result.neighborhood || current.neighborhood,
+        city: result.city,
+        state: result.state,
+      }))
+    } catch {
+      showToast('Não foi possível buscar o CEP agora.')
+    } finally {
+      setIsLookingUpCep(false)
+    }
   }
 
   const handleSubmit = async (event: FormEvent) => {
@@ -198,7 +231,10 @@ export function Addresses() {
 
           <div className="grid grid-cols-2 gap-4">
             <label className="flex flex-col gap-1 text-sm text-muted">
-              CEP
+              <span className="flex items-center gap-1.5">
+                CEP
+                {isLookingUpCep && <RiLoader4Line className="size-3.5 animate-spin" />}
+              </span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -206,25 +242,21 @@ export function Addresses() {
                 maxLength={9}
                 value={form.cep}
                 onChange={(event) => updateField('cep', formatCep(event.target.value))}
+                onBlur={handleCepBlur}
                 className="border border-border px-3 py-2 text-sm text-foreground outline-none"
               />
             </label>
 
-            <label className="flex flex-col gap-1 text-sm text-muted">
-              Estado
-              <select
+            <div className="flex flex-col gap-1 text-sm text-muted">
+              <span>Estado</span>
+              <SortDropdown
+                options={stateOptions}
                 value={form.state}
-                onChange={(event) => updateField('state', event.target.value)}
-                className="border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none"
-              >
-                <option value="">Selecione</option>
-                {BRAZILIAN_STATES.map(([code, name]) => (
-                  <option key={code} value={code}>
-                    {code} — {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={(value) => updateField('state', value)}
+                menuClassName="left-0 w-full max-h-56 overflow-y-auto"
+                showHoverBorder={false}
+              />
+            </div>
           </div>
 
           <label className="flex flex-col gap-1 text-sm text-muted">

@@ -39,3 +39,8 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* Firefox desenha uma borda pontilhada própria em botões focados, à parte do outline */
+button::-moz-focus-inner {
+  border: 0;
+}

@@ -105,7 +105,7 @@ export function Settings() {
         </form>
       </div>
 
-      <div className="border-t border-border pt-8">
+      <div className="max-w-sm border border-border p-6">
         <h2 className="text-sm uppercase tracking-wider text-danger">Excluir conta</h2>
         <p className="mt-2 max-w-sm text-sm text-muted">
           Isso remove permanentemente sua conta, endereços e sessões ativas. Essa ação não pode ser desfeita.

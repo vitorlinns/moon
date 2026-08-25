@@ -43,6 +43,7 @@ public class MoonApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Addresses.ExecuteDeleteAsync();
+        await db.PaymentMethods.ExecuteDeleteAsync();
         await db.RefreshTokens.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
     }
@@ -52,6 +53,7 @@ public class MoonApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Addresses.ExecuteDeleteAsync();
+        await db.PaymentMethods.ExecuteDeleteAsync();
         await db.RefreshTokens.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
     }
